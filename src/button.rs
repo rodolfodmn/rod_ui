@@ -6,48 +6,50 @@ pub struct Button {
     pub y: u16,
     pub width: u16,
     pub focused: bool,
+    pub action_key: Option<char>,
 }
 
 impl Button {
-    /// Cria um novo botão
     pub fn new(label: &str, x: u16, y: u16) -> Self {
-        let width = label.len() as u16 + 4; // padding
+        let width = label.len() as u16 + 4;
         Self {
             label: label.to_string(),
             x,
             y,
             width,
             focused: false,
+            action_key: None,
         }
     }
 
-    /// Define se o botão está focado
+    pub fn with_action_key(mut self, key: char) -> Self {
+        self.action_key = Some(key);
+        self
+    }
+
     pub fn set_focus(&mut self, focused: bool) {
         self.focused = focused;
     }
 
-    /// Desenha o botão na tela
     pub fn draw(&self) {
         let reset = "\x1B[0m";
 
-        // Cores diferentes para estado focado/normal
         let (border_top, border_mid, border_bot, text_color) = if self.focused {
             (
-                "\x1B[38;2;74;222;128m", // verde claro
-                "\x1B[38;2;34;197;94m",  // verde médio
-                "\x1B[38;2;22;163;74m",  // verde escuro
-                "\x1B[1;97m",            // branco bold
+                "\x1B[38;2;74;222;128m",
+                "\x1B[38;2;34;197;94m",
+                "\x1B[38;2;22;163;74m",
+                "\x1B[1;97m",
             )
         } else {
             (
-                "\x1B[38;2;100;116;139m", // cinza
+                "\x1B[38;2;100;116;139m",
                 "\x1B[38;2;71;85;105m",
                 "\x1B[38;2;51;65;85m",
-                "\x1B[37m", // branco normal
+                "\x1B[37m",
             )
         };
 
-        // Linha superior
         print!("\x1B[{};{}H", self.y, self.x);
         print!(
             "{}┌{}┐{}",
@@ -56,20 +58,25 @@ impl Button {
             reset
         );
 
-        // Linha do meio com label
         print!("\x1B[{};{}H", self.y + 1, self.x);
-        let padding = (self.width as usize - self.label.len()) / 2;
+
+        // Mostra a action key no label se existir
+        let display_label = if let Some(key) = self.action_key {
+            format!("{} ({})", self.label, key)
+        } else {
+            self.label.clone()
+        };
+
         print!(
             "{}│{}{:^width$}{}│{}",
             border_mid,
             text_color,
-            self.label,
+            display_label,
             border_mid,
             reset,
             width = self.width as usize
         );
 
-        // Linha inferior
         print!("\x1B[{};{}H", self.y + 2, self.x);
         print!(
             "{}└{}┘{}",
@@ -81,11 +88,14 @@ impl Button {
         io::stdout().flush().unwrap();
     }
 
-    /// Verifica se o botão foi clicado (placeholder para implementação futura)
     pub fn is_hovered(&self, cursor_x: u16, cursor_y: u16) -> bool {
         cursor_x >= self.x
             && cursor_x <= self.x + self.width + 1
             && cursor_y >= self.y
             && cursor_y <= self.y + 2
+    }
+
+    pub fn matches_key(&self, key: char) -> bool {
+        self.action_key == Some(key.to_ascii_lowercase())
     }
 }

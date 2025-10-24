@@ -1,5 +1,5 @@
 use crate::button::Button;
-use std::io::{self, Write};
+use std::io::{self, Read, Write, stdin};
 
 pub struct Screen {
     buttons: Vec<Button>,
@@ -7,7 +7,6 @@ pub struct Screen {
 }
 
 impl Screen {
-    /// Cria uma nova tela
     pub fn new() -> Self {
         Self {
             buttons: Vec::new(),
@@ -15,37 +14,31 @@ impl Screen {
         }
     }
 
-    /// Adiciona um botão à tela
     pub fn add_button(&mut self, button: Button) -> usize {
         self.buttons.push(button);
         self.buttons.len() - 1
     }
 
-    /// Limpa a tela
     pub fn clear(&self) {
         print!("\x1B[2J\x1B[H");
         io::stdout().flush().unwrap();
     }
 
-    /// Desenha todos os botões
     pub fn draw(&self) {
         for button in &self.buttons {
             button.draw();
         }
     }
 
-    /// Move o foco para o próximo botão
     pub fn focus_next(&mut self) {
         if self.buttons.is_empty() {
             return;
         }
 
-        // Remove foco do botão atual
         if let Some(idx) = self.focused_index {
             self.buttons[idx].focused = false;
         }
 
-        // Calcula próximo índice
         let next = match self.focused_index {
             None => 0,
             Some(idx) => (idx + 1) % self.buttons.len(),
@@ -55,7 +48,6 @@ impl Screen {
         self.buttons[next].focused = true;
     }
 
-    /// Move o foco para o botão anterior
     pub fn focus_prev(&mut self) {
         if self.buttons.is_empty() {
             return;
@@ -75,8 +67,54 @@ impl Screen {
         self.buttons[prev].focused = true;
     }
 
-    /// Retorna o índice do botão focado
+    pub fn focus_by_key(&mut self, key: char) -> bool {
+        if let Some(idx) = self.focused_index {
+            self.buttons[idx].focused = false;
+        }
+
+        for (idx, button) in self.buttons.iter_mut().enumerate() {
+            if button.matches_key(key) {
+                button.focused = true;
+                self.focused_index = Some(idx);
+                return true;
+            }
+        }
+
+        if let Some(idx) = self.focused_index {
+            self.buttons[idx].focused = true;
+        }
+
+        false
+    }
+
     pub fn get_focused(&self) -> Option<usize> {
         self.focused_index
+    }
+
+    // Espera por uma tecla sem mostrar no terminal
+    pub fn wait_for_key(&mut self) -> io::Result<char> {
+        // Entra em modo raw
+        Self::enable_raw_mode()?;
+
+        let mut buffer = [0; 1];
+        stdin().read_exact(&mut buffer)?;
+        let key = buffer[0] as char;
+
+        // Sai do modo raw
+        Self::disable_raw_mode()?;
+
+        Ok(key)
+    }
+
+    fn enable_raw_mode() -> io::Result<()> {
+        use std::process::Command;
+        Command::new("stty").args(&["raw", "-echo"]).status()?;
+        Ok(())
+    }
+
+    fn disable_raw_mode() -> io::Result<()> {
+        use std::process::Command;
+        Command::new("stty").arg("sane").status()?;
+        Ok(())
     }
 }
